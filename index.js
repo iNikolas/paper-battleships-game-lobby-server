@@ -1,6 +1,7 @@
 const express = require("express"),
     http = require('http'),
     app = express(),
+    router = express.Router(),
     WebSocket = require('ws'),
     server = http.createServer(app),
     parseCookie = require("./controllers/helpers/websocket/parseCookie"),
@@ -12,14 +13,28 @@ const express = require("express"),
     {initializeApp, applicationDefault} = require('firebase-admin/app'),
     {getAuth} = require('firebase-admin/auth'),
     admin = require('firebase-admin'),
-    isProduction = process.env.NODE_ENV === "production";
+    cookieParser = require('cookie-parser'),
+    bodyParser = require("body-parser"),
+    cors = require('cors'),
+    isProduction = process.env.NODE_ENV === "production"
 
-require("dotenv").config();
+require("dotenv").config()
 
 initializeApp({
     credential: applicationDefault(),
     databaseURL: "https://paper-battleships-default-rtdb.europe-west1.firebasedatabase.app"
 });
+
+app.use('/', router)
+
+router.use(cors({
+    origin: isProduction
+        ? "https://inikolas.github.io"
+        : "http://localhost:3000",
+    credentials: true,
+}))
+    .use(cookieParser())
+    .use(bodyParser.json({type: "application/vnd.api+json"}))
 
 const webSocketServer = new WebSocket.Server({server})
 
