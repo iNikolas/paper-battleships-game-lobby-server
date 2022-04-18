@@ -1,7 +1,6 @@
 const express = require("express"),
     http = require('http'),
     app = express(),
-    cors = require('cors'),
     WebSocket = require('ws'),
     server = http.createServer(app),
     parseCookie = require("./controllers/helpers/websocket/parseCookie"),
@@ -21,14 +20,6 @@ initializeApp({
     credential: applicationDefault(),
     databaseURL: "https://paper-battleships-default-rtdb.europe-west1.firebasedatabase.app"
 });
-
-
-app.use(cors({
-    origin: isProduction
-        ? "https://paper-battleships.web.app/"
-        : "http://localhost:3000",
-    credentials: true,
-}))
 
 const webSocketServer = new WebSocket.Server({server})
 
