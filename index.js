@@ -189,6 +189,8 @@ webSocketServer.on('connection', async (ws, req) => {
 server.on('upgrade', (req, socket, head) => {
     const token = (req.headers['sec-websocket-protocol']);
 
+    console.log(token);
+
     if (!token) return refuseSocketConnection(socket)
 
     getAuth().verifyIdToken(token).then(user => {
