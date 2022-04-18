@@ -13,8 +13,6 @@ const express = require("express"),
     {initializeApp, applicationDefault} = require('firebase-admin/app'),
     {getAuth} = require('firebase-admin/auth'),
     admin = require('firebase-admin'),
-    cookieParser = require('cookie-parser'),
-    bodyParser = require("body-parser"),
     cors = require('cors'),
     isProduction = process.env.NODE_ENV === "production"
 
@@ -33,8 +31,6 @@ router.use(cors({
         : "http://localhost:3000",
     credentials: true,
 }))
-    .use(cookieParser())
-    .use(bodyParser.json({type: "application/vnd.api+json"}))
 
 const webSocketServer = new WebSocket.Server({server})
 
