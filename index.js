@@ -193,6 +193,8 @@ webSocketServer.on('connection', async (ws, req) => {
 server.on('upgrade', (req, socket, head) => {
     const cookie = req.headers.cookie
 
+    console.log(cookie);
+
     if (!cookie) return refuseSocketConnection(socket)
 
     const {token} = parseCookie(cookie)
