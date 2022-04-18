@@ -1,11 +1,8 @@
 const express = require("express"),
     http = require('http'),
     app = express(),
-    router = express.Router(),
-    cors = require('cors'),
     WebSocket = require('ws'),
     server = http.createServer(app),
-    parseCookie = require("./controllers/helpers/websocket/parseCookie"),
     refuseSocketConnection = require("./controllers/helpers/authFunctions/refuseSocketConnection"),
     broadcastMessage = require("./controllers/helpers/websocket/broadcastMessage"),
     {refreshRedisSet, updateRedisSet, getRedisSet, deleteRedisHashKey, updateRedisHash, getRedisHash, refreshRedisHash} = require("./db/redis/redis"),
@@ -13,8 +10,7 @@ const express = require("express"),
     parseMessage = require("./controllers/helpers/websocket/parseMassage"),
     {initializeApp, applicationDefault} = require('firebase-admin/app'),
     {getAuth} = require('firebase-admin/auth'),
-    admin = require('firebase-admin'),
-    isProduction = process.env.NODE_ENV === "production";
+    admin = require('firebase-admin')
 
 require("dotenv").config()
 
@@ -22,17 +18,6 @@ initializeApp({
     credential: applicationDefault(),
     databaseURL: "https://paper-battleships-default-rtdb.europe-west1.firebasedatabase.app"
 });
-
-app.use('/', router)
-
-router.use(cors({
-    origin: isProduction
-        ? "https://paper-battleships-game-server.herokuapp.com"
-        : "http://localhost:3000",
-    credentials: true,
-}))
-
-router.get('/', (req, res) => res.send('WS Server!'))
 
 const webSocketServer = new WebSocket.Server({server})
 
@@ -53,15 +38,12 @@ webSocketServer.on('connection', async (ws, req) => {
     ws.on('pong', () => ws.isAlive = true)
 
     ws.on('message', (message) => {
-        const cookie = req.headers.cookie
-        if (!cookie) return refuseSocketConnection(ws)
+        const {errors, type, description, host, rivalName, rivalUid, token} = parseMessage(message)
 
-        const {token} = parseCookie(cookie)
         if (!token) return refuseSocketConnection(ws)
 
         getAuth().verifyIdToken(token).then(async (user) => {
             const {name, uid} = user
-            const {errors, type, description, host, rivalName, rivalUid} = parseMessage(message)
 
             if (errors) return ws.send(JSON.stringify({errors}))
 
@@ -191,13 +173,7 @@ webSocketServer.on('connection', async (ws, req) => {
 })
 
 server.on('upgrade', (req, socket, head) => {
-    const cookie = req.headers.cookie
-
-    console.log(cookie);
-
-    if (!cookie) return refuseSocketConnection(socket)
-
-    const {token} = parseCookie(cookie)
+    const token = (req.headers['sec-websocket-protocol']);
 
     if (!token) return refuseSocketConnection(socket)
 
