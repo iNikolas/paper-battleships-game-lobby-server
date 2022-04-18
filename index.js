@@ -1,5 +1,5 @@
 const express = require("express"),
-    http = require('https'),
+    http = require('http'),
     app = express(),
     WebSocket = require('ws'),
     server = http.createServer(app),
