@@ -29,7 +29,7 @@ app.use('/', router)
 
 router.use(cors({
     origin: isProduction
-        ? "https://inikolas.github.io"
+        ? "https://paper-battleships.web.app/"
         : "http://localhost:3000",
     credentials: true,
 }))
