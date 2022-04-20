@@ -1,8 +1,6 @@
 const express = require("express"),
     http = require('http'),
     app = express(),
-    router = express.Router(),
-    cors = require('cors'),
     WebSocket = require('ws'),
     server = http.createServer(app),
     refuseSocketConnection = require("./controllers/helpers/authFunctions/refuseSocketConnection"),
@@ -12,8 +10,7 @@ const express = require("express"),
     parseMessage = require("./controllers/helpers/websocket/parseMassage"),
     {initializeApp, applicationDefault} = require('firebase-admin/app'),
     {getAuth} = require('firebase-admin/auth'),
-    admin = require('firebase-admin'),
-    isProduction = process.env.NODE_ENV === "production";
+    admin = require('firebase-admin');
 
 require("dotenv").config()
 
@@ -21,17 +18,6 @@ initializeApp({
     credential: applicationDefault(),
     databaseURL: "https://paper-battleships-default-rtdb.europe-west1.firebasedatabase.app"
 });
-
-app.use('/', router)
-
-router.use(cors({
-    origin: isProduction
-        ? "https://paper-battleships-game-server.herokuapp.com"
-        : "http://localhost:3000",
-    credentials: true,
-}))
-
-router.get('/', (req, res) => res.send('WS Server!'))
 
 const webSocketServer = new WebSocket.Server({server})
 
@@ -233,6 +219,11 @@ setInterval(async () => {
 
     broadcastMessage(webSocketServer, {online, gameRequests})
 }, 30000)
+
+setInterval(async () => {
+    const serverTime = Date.now()
+    broadcastMessage(webSocketServer, {serverTime, type: 'update-time'})
+}, 1000)
 
 server.listen(+process.env.PORT || 4000, () => {
     console.log(`Server started on port ${server.address().port}.`)
