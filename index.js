@@ -38,89 +38,18 @@ webSocketServer.on('connection', async (ws, req) => {
     ws.on('pong', () => ws.isAlive = true)
 
     ws.on('message', (message) => {
-        const {errors, type, description, host, rivalName, rivalUid, token} = parseMessage(message)
+        const {errors, type, description, host, rivalName, rivalUid, token, authorUid} = parseMessage(message)
 
         if (!token) return refuseSocketConnection(ws)
 
         getAuth().verifyIdToken(token).then(async (user) => {
-            const {name, uid} = user
+                const {name, uid} = user
 
-            if (errors) return ws.send(JSON.stringify({errors}))
+                if (errors) return ws.send(JSON.stringify({errors}))
 
-            if (type === 'create-game') {
-                await updateRedisHash('games', [uid, {name, description, time: new Date()}])
-                const games = await getRedisHash('games')
-                const gameRequests = []
-
-                for (let key in games) {
-                    const uid = JSON.parse(key)
-                    gameRequests.push(uid, JSON.parse(games[key]))
-                }
-
-                broadcastMessage(webSocketServer, {gameRequests})
-            }
-
-            if (type === 'cancel-game') {
-                await deleteRedisHashKey('games', uid)
-
-                const games = await getRedisHash('games')
-                const gameRequests = []
-
-                for (let key in games) {
-                    const uid = JSON.parse(key)
-                    gameRequests.push(uid, JSON.parse(games[key]))
-                }
-
-                broadcastMessage(webSocketServer, {gameRequests})
-            }
-
-            if (type === 'join-game') {
-                try {
-                    const db = admin.firestore()
-                    const hostRef = db.collection('games').doc(host)
-                    const clientRef = db.collection('games').doc(uid)
-
-                    const hostStatisticRef = db.collection('statistic').doc(host)
-                    const clientStatisticRef = db.collection('statistic').doc(uid)
-
-                    await db.runTransaction(async transaction => {
-                        try {
-                            const hostStatisticDoc = await transaction.get(hostStatisticRef)
-                            const clientStatisticDoc = await transaction.get(clientStatisticRef)
-
-                            if (!hostStatisticDoc.data()) {
-                                transaction.set(hostStatisticRef, {gamesPlayed: 0, wins: 0})
-                            }
-                            if (!clientStatisticDoc.data()) {
-                                transaction.set(clientStatisticRef, {gamesPlayed: 0, wins: 0})
-                            }
-
-                            const randomPlayer = Math.floor(Math.random() * 2)
-
-                            transaction.set(hostRef, {
-                                host: null,
-                                client: uid,
-                                rivalName: name,
-                                isEditable: true,
-                                isMoving: !!randomPlayer
-                            })
-
-                            transaction.set(clientRef, {
-                                host,
-                                client: null,
-                                rivalName,
-                                isEditable: true,
-                                isMoving: !randomPlayer
-                            })
-                        } catch (error) {
-                            console.error(error.message)
-                            ws.send(JSON.stringify({errors: [error.message]}))
-                        }
-                    })
-
-                    await deleteRedisHashKey('games', host)
+                if (type === 'create-game') {
+                    await updateRedisHash('games', [uid, {name, description, time: new Date()}])
                     const games = await getRedisHash('games')
-
                     const gameRequests = []
 
                     for (let key in games) {
@@ -129,44 +58,127 @@ webSocketServer.on('connection', async (ws, req) => {
                     }
 
                     broadcastMessage(webSocketServer, {gameRequests})
-                } catch (error) {
-                    console.error(error.message)
-                    ws.send(JSON.stringify({errors: [error.message]}))
                 }
-            }
 
-            if (type === 'ditch-game') {
-                try {
-                    await ditchGame(uid)
-                } catch (error) {
-                    console.error(error.message)
-                    ws.send(JSON.stringify({errors: [error.message]}))
+                if (type === 'cancel-game') {
+                    await deleteRedisHashKey('games', uid)
+
+                    const games = await getRedisHash('games')
+                    const gameRequests = []
+
+                    for (let key in games) {
+                        const uid = JSON.parse(key)
+                        gameRequests.push(uid, JSON.parse(games[key]))
+                    }
+
+                    broadcastMessage(webSocketServer, {gameRequests})
                 }
-            }
 
-            if (type === 'ditch-game-request') {
-                let isRivalOnline = false
-                try {
-                    webSocketServer.clients.forEach(ws => {
-                        const user = ws._socket.user
-                        if (!user) return
+                if (type === 'join-game') {
+                    try {
+                        const db = admin.firestore()
+                        const hostRef = db.collection('games').doc(host)
+                        const clientRef = db.collection('games').doc(uid)
 
-                        const {uid} = user
+                        const hostStatisticRef = db.collection('statistic').doc(host)
+                        const clientStatisticRef = db.collection('statistic').doc(uid)
 
-                        if (uid === rivalUid) {
-                            isRivalOnline = true
-                            ws.send(JSON.stringify({type: 'game'}))
+                        await db.runTransaction(async transaction => {
+                            try {
+                                const hostStatisticDoc = await transaction.get(hostStatisticRef)
+                                const clientStatisticDoc = await transaction.get(clientStatisticRef)
+
+                                if (!hostStatisticDoc.data()) {
+                                    transaction.set(hostStatisticRef, {gamesPlayed: 0, wins: 0})
+                                }
+                                if (!clientStatisticDoc.data()) {
+                                    transaction.set(clientStatisticRef, {gamesPlayed: 0, wins: 0})
+                                }
+
+                                const randomPlayer = Math.floor(Math.random() * 2)
+
+                                transaction.set(hostRef, {
+                                    host: null,
+                                    client: uid,
+                                    rivalName: name,
+                                    isEditable: true,
+                                    isMoving: !!randomPlayer
+                                })
+
+                                transaction.set(clientRef, {
+                                    host,
+                                    client: null,
+                                    rivalName,
+                                    isEditable: true,
+                                    isMoving: !randomPlayer
+                                })
+                            } catch (error) {
+                                console.error(error.message)
+                                ws.send(JSON.stringify({errors: [error.message]}))
+                            }
+                        })
+
+                        await deleteRedisHashKey('games', host)
+                        const games = await getRedisHash('games')
+
+                        const gameRequests = []
+
+                        for (let key in games) {
+                            const uid = JSON.parse(key)
+                            gameRequests.push(uid, JSON.parse(games[key]))
                         }
-                    })
 
-                    if (!isRivalOnline) await ditchGame(uid)
-                } catch (error) {
-                    console.error(error.message)
-                    ws.send(JSON.stringify({errors: [error.message]}))
+                        broadcastMessage(webSocketServer, {gameRequests})
+                    } catch (error) {
+                        console.error(error.message)
+                        ws.send(JSON.stringify({errors: [error.message]}))
+                    }
                 }
-            }
 
-        }).catch((error) => {
+                if (type === 'ditch-game') {
+                    try {
+                        await ditchGame(uid)
+                    } catch (error) {
+                        console.error(error.message)
+                        ws.send(JSON.stringify({errors: [error.message]}))
+                    }
+                }
+
+                if (type === 'ditch-game-request') {
+                    let isRivalOnline = false
+                    try {
+                        webSocketServer.clients.forEach(ws => {
+                            const user = ws._socket.user
+                            if (!user) return
+
+                            const {uid} = user
+
+                            if (uid === rivalUid) {
+                                isRivalOnline = true
+                                ws.send(JSON.stringify({type: 'game'}))
+                            }
+                        })
+
+                        if (!isRivalOnline) await ditchGame(uid)
+                    } catch (error) {
+                        console.error(error.message)
+                        ws.send(JSON.stringify({errors: [error.message]}))
+                    }
+                }
+
+                if (type === 'get-user-photo-url') {
+                    try {
+                        const auth = admin.auth()
+                        const user = await auth.getUser(authorUid)
+                        ws.send(JSON.stringify({photoURL: user.photoURL, authorUid, type: 'photo-url'}))
+                    } catch (error) {
+                        console.error(error.message)
+                        ws.send(JSON.stringify({errors: [error.message]}))
+                    }
+                }
+
+            }
+        ).catch((error) => {
             ws.send(JSON.stringify({errors: [error.message]}))
         })
     });
